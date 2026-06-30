@@ -272,6 +272,7 @@ function route() {
   if (r === "workout") renderWorkout(app, param);
   else if (r === "history") renderHistory(app);
   else if (r === "session") renderSessionDetail(app, param);
+  else if (r === "progress") renderProgress(app);
   else renderHome(app);
 
   window.scrollTo(0, 0);
@@ -370,6 +371,16 @@ function renderHome(app) {
     </button>`);
   hist.onclick = () => go("#/history");
   content.appendChild(hist);
+
+  /* --- Progress entry point --- */
+  const prog = el(`
+    <button class="link-btn">
+      <span>Progress</span>
+      <span class="chev">›</span>
+    </button>`);
+  prog.onclick = () => go("#/progress");
+  content.appendChild(prog);
+  /* --- end Progress entry point --- */
 
   app.appendChild(content);
 }
@@ -698,6 +709,97 @@ function renderSessionDetail(app, id) {
       toast("Delete failed — check connection and retry");
     }
   };
+}
+
+/* ============================================================
+   Progress screen (read-only) — per-lift weight charts
+   ============================================================ */
+
+/* Collect (date, weight) points for one lift, oldest -> newest. */
+function liftPoints(history, key) {
+  const pts = [];
+  history.forEach((h) => {
+    const ex = h.exercises.find((e) => e.key === key);
+    if (ex) pts.push({ date: h.date, weight: ex.weight });
+  });
+  // history is newest-first; reverse for chronological order.
+  return pts.reverse();
+}
+
+/* Build a responsive inline-SVG line chart markup string for the points. */
+function weightChartSVG(points) {
+  const W = 300, H = 120, padX = 10, padTop = 14, padBottom = 14;
+  const innerW = W - padX * 2;
+  const innerH = H - padTop - padBottom;
+  const baseY = H - padBottom;
+
+  const weights = points.map((p) => p.weight);
+  let min = Math.min(...weights);
+  let max = Math.max(...weights);
+  if (min === max) { min -= WEIGHT_STEP; max += WEIGHT_STEP; } // flat line -> centre it
+  const span = max - min;
+
+  const n = points.length;
+  const x = (i) => padX + (n === 1 ? innerW / 2 : (innerW * i) / (n - 1));
+  const y = (w) => padTop + innerH - ((w - min) / span) * innerH;
+
+  const coords = points.map((p, i) => ({ cx: x(i), cy: y(p.weight) }));
+  const polyPts = coords.map((c) => `${c.cx.toFixed(1)},${c.cy.toFixed(1)}`).join(" ");
+  const dots = coords.map((c) => `<circle cx="${c.cx.toFixed(1)}" cy="${c.cy.toFixed(1)}" r="3.5" fill="var(--red)" />`).join("");
+
+  return `
+    <svg class="progress-chart" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img" aria-label="weight over time">
+      <line x1="${padX}" y1="${baseY}" x2="${W - padX}" y2="${baseY}" stroke="var(--line)" stroke-width="1" />
+      <polyline points="${polyPts}" fill="none" stroke="var(--red)" stroke-width="2"
+        stroke-linejoin="round" stroke-linecap="round" vector-effect="non-scaling-stroke" />
+      ${dots}
+    </svg>`;
+}
+
+function renderProgress(app) {
+  const data = Store.load();
+
+  app.appendChild(el(`
+    <div class="topbar">
+      <button class="topbar-btn left" id="backBtn">‹ Back</button>
+      <span class="topbar-title">Progress</span>
+      <span class="right"></span>
+    </div>
+  `));
+
+  const content = el(`<div class="content"></div>`);
+  content.appendChild(el(`<div class="screen-title">Progress</div>`));
+
+  if (!data.history.length) {
+    content.appendChild(el(`<div class="empty">No workouts logged yet.<br/>Finish a session to see your progress here.</div>`));
+    app.appendChild(content);
+    $("#backBtn").onclick = () => go("#/home");
+    return;
+  }
+
+  Object.keys(EXERCISES).forEach((key) => {
+    const pts = liftPoints(data.history, key);
+    const latest = pts.length ? pts[pts.length - 1].weight : null;
+
+    const card = el(`<div class="progress-card"></div>`);
+    card.appendChild(el(`
+      <div class="progress-head">
+        <span class="progress-name">${EXERCISES[key].name}</span>
+        <span class="progress-latest">${latest !== null ? `${latest}lb` : "—"}</span>
+      </div>`));
+
+    if (pts.length < 2) {
+      card.appendChild(el(`<div class="progress-nodata">Not enough data yet</div>`));
+    } else {
+      const chart = el(`<div class="progress-chart-wrap"></div>`);
+      chart.innerHTML = weightChartSVG(pts);
+      card.appendChild(chart);
+    }
+    content.appendChild(card);
+  });
+
+  app.appendChild(content);
+  $("#backBtn").onclick = () => go("#/home");
 }
 
 /* ============================================================

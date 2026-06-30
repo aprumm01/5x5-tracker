@@ -608,3 +608,43 @@ button { font-family: inherit; cursor: pointer; border: none; background: none; 
 }
 .delete-btn:active { background: rgba(255, 59, 48, 0.12); }
 .delete-btn:disabled { opacity: 0.6; }
+/* ============================================================
+   Progress screen — per-lift weight charts
+   ============================================================ */
+.progress-card {
+  background: var(--bg-soft);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 14px 14px 10px;
+  margin-top: 12px;
+}
+.progress-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+.progress-name {
+  color: var(--text);
+  font-size: 16px;
+  font-weight: 700;
+}
+.progress-latest {
+  color: var(--red);
+  font-size: 15px;
+  font-weight: 700;
+}
+.progress-chart-wrap {
+  width: 100%;
+}
+.progress-chart {
+  display: block;
+  width: 100%;
+  height: 120px;
+}
+.progress-nodata {
+  color: var(--text-soft);
+  font-size: 13px;
+  padding: 16px 0;
+  text-align: center;
+}
