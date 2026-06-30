@@ -244,6 +244,7 @@ function route() {
 
   if (r === "workout") renderWorkout(app, param);
   else if (r === "history") renderHistory(app);
+  else if (r === "session") renderSessionDetail(app, param);
   else renderHome(app);
 
   window.scrollTo(0, 0);
@@ -547,7 +548,7 @@ function renderHistory(app) {
         const done = e.sets.filter((v) => v === "pass").length;
         return `${e.name} <span class="done-dot">${done}/${e.targetSets}</span> · ${e.weight}lb`;
       }).join("<br/>");
-      content.appendChild(el(`
+      const card = el(`
         <div class="history-card">
           <div class="top">
             <div>
@@ -557,12 +558,119 @@ function renderHistory(app) {
             <span class="badge">${h.workout}</span>
           </div>
           <div class="summary">${summary}</div>
-        </div>`));
+        </div>`);
+      card.onclick = () => go("#/session/" + h.id);
+      content.appendChild(card);
     });
   }
 
   app.appendChild(content);
   $("#backBtn").onclick = () => go("#/home");
+}
+
+/* ============================================================
+   Session detail — view, edit (sets + weight), save, delete
+   ============================================================ */
+function renderSessionDetail(app, id) {
+  const session = Store.load().history.find((h) => String(h.id) === String(id));
+
+  if (!session) {
+    app.appendChild(el(`
+      <div class="topbar">
+        <button class="topbar-btn left" id="backBtn">‹ History</button>
+        <span class="topbar-title">Session</span>
+        <span class="right"></span>
+      </div>`));
+    app.appendChild(el(`<div class="content"><div class="empty">Session not found.</div></div>`));
+    $("#backBtn").onclick = () => go("#/history");
+    return;
+  }
+
+  app.appendChild(el(`
+    <div class="topbar">
+      <button class="topbar-btn left" id="backBtn">‹ History</button>
+      <span class="topbar-title">${WORKOUTS[session.workout].name}</span>
+      <button class="topbar-btn strong right" id="saveBtn">Save</button>
+    </div>
+  `));
+
+  const content = el(`<div class="content"></div>`);
+  content.appendChild(el(`<div class="session-date">${fmtDate(session.date)}</div>`));
+
+  session.exercises.forEach((exr) => {
+    const block = el(`<div class="exercise"></div>`);
+    block.appendChild(el(`
+      <div class="exercise-head">
+        <span class="name">${exr.name}</span>
+        <button class="weight-btn">${exr.targetSets}×${exr.targetReps} · <b>${exr.weight}lb</b> <span class="chev">›</span></button>
+      </div>`));
+
+    const circles = el(`<div class="circles"></div>`);
+    exr.sets.forEach((val, setIdx) => circles.appendChild(makeCircle(exr, setIdx)));
+    block.appendChild(circles);
+
+    $(".weight-btn", block).onclick = () => openWeightSheet(exr, (w) => {
+      exr.weight = w;
+      $(".weight-btn b", block).textContent = `${w}lb`;
+    });
+
+    content.appendChild(block);
+
+    function makeCircle(exr, setIdx) {
+      const val = exr.sets[setIdx]; // null | "pass" | "fail"
+      let cls = "set-circle";
+      let label = exr.targetReps;
+      if (val === "pass") { cls += " done"; label = "✓"; }
+      else if (val === "fail") { cls += " fail"; label = "✕"; }
+      const c = el(`<button class="${cls}">${label}</button>`);
+      c.onclick = () => {
+        const cur = exr.sets[setIdx];
+        if (cur === null) exr.sets[setIdx] = "pass";
+        else if (cur === "pass") exr.sets[setIdx] = "fail";
+        else exr.sets[setIdx] = null;
+        c.replaceWith(makeCircle(exr, setIdx));
+      };
+      return c;
+    }
+  });
+
+  const del = el(`<button class="delete-btn" id="deleteBtn">Delete workout</button>`);
+  content.appendChild(del);
+
+  app.appendChild(content);
+
+  $("#backBtn").onclick = () => go("#/history");
+
+  $("#saveBtn").onclick = async () => {
+    const btn = $("#saveBtn");
+    btn.textContent = "Saving…"; btn.disabled = true;
+    try {
+      await Backend.saveSession(session.date, session);
+      await loadData();
+      toast("Saved ✓");
+      go("#/history");
+    } catch (e) {
+      console.error(e);
+      btn.textContent = "Save"; btn.disabled = false;
+      toast("Save failed — check connection and retry");
+    }
+  };
+
+  $("#deleteBtn").onclick = async () => {
+    if (!confirm("Delete this workout? This can't be undone.")) return;
+    const btn = $("#deleteBtn");
+    btn.textContent = "Deleting…"; btn.disabled = true;
+    try {
+      await Backend.deleteSession(session.date);
+      await loadData();
+      toast("Deleted");
+      go("#/history");
+    } catch (e) {
+      console.error(e);
+      btn.textContent = "Delete workout"; btn.disabled = false;
+      toast("Delete failed — check connection and retry");
+    }
+  };
 }
 
 /* ============================================================
