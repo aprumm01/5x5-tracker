@@ -53,6 +53,36 @@ const Store = {
   },
 };
 
+/* Derive the next target weight for one lift from its full session
+   history (oldest→newest). StrongLifts progression:
+   - pass (every target set "pass"): +5, reset fail streak
+   - fail: hold weight, fail streak += 1
+   - after 3 consecutive failed sessions: deload to 90% rounded to
+     nearest 5 lb, reset streak. */
+function deriveWeight(k, sessions) {
+  if (!sessions.length) return DEFAULT_WEIGHTS[k];
+  const target = EXERCISES[k].sets;
+  let next = null;
+  let streak = 0;
+  sessions.forEach((r) => {
+    const weight = r.weight;
+    const passed = r.sets.slice(0, target).every((v) => v === "pass");
+    if (passed) {
+      next = weight + WEIGHT_STEP;
+      streak = 0;
+    } else {
+      streak += 1;
+      if (streak >= 3) {
+        next = Math.round((0.9 * weight) / WEIGHT_STEP) * WEIGHT_STEP;
+        streak = 0;
+      } else {
+        next = weight;
+      }
+    }
+  });
+  return next;
+}
+
 /* ============================================================
    Build in-memory state from Supabase rows.
    Each row: {date, workout, exercise, weight, sets:[...]}.
@@ -77,17 +107,14 @@ function buildState(rows) {
   const history = [...map.values()].sort((a, b) => new Date(b.date) - new Date(a.date));
   history.forEach((h, i) => { h.id = i; });
 
-  // Next target weight = most recent logged weight + 5 if that session passed, else hold.
+  // Next target weight: walk each lift's full history oldest→newest,
+  // applying progression / hold / deload (see deriveWeight).
   const weights = { ...DEFAULT_WEIGHTS };
   Object.keys(EXERCISES).forEach((k) => {
-    let latest = null;
-    rows.forEach((r) => {
-      if (r.exercise === k && (!latest || new Date(r.date) > new Date(latest.date))) latest = r;
-    });
-    if (latest) {
-      const passed = latest.sets.slice(0, EXERCISES[k].sets).every((v) => v === "pass");
-      weights[k] = latest.weight + (passed ? WEIGHT_STEP : 0);
-    }
+    const sessions = rows
+      .filter((r) => r.exercise === k)
+      .sort((a, b) => new Date(a.date) - new Date(b.date));
+    weights[k] = deriveWeight(k, sessions);
   });
 
   return { weights, lastWorkout: history.length ? history[0].workout : null, history };
