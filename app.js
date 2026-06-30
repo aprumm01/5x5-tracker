@@ -20,7 +20,7 @@ const WORKOUTS = {
   B: { name: "Workout B", exercises: ["squat", "ohp", "deadlift"] },
 };
 
-const DEFAULT_WEIGHTS = { squat: 220, bench: 140, row: 130, ohp: 95, deadlift: 185 };
+const DEFAULT_WEIGHTS = { squat: 55, bench: 55, row: 55, ohp: 55, deadlift: 55 };
 
 /* ============================================================
    Store — single source of truth, persisted to localStorage.
