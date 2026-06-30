@@ -66,9 +66,9 @@ const Backend = {
     return data || [];
   },
 
-  async insertSession(session) {
-    const date = new Date().toISOString();
-    const rows = session.exercises.map((e) => ({
+  // Shared row-builder: turns one session into `workouts` table rows for `date`.
+  buildRows(date, session) {
+    return session.exercises.map((e) => ({
       date,
       workout: session.workout,
       exercise: e.key,
@@ -76,7 +76,24 @@ const Backend = {
       sets: e.sets, // jsonb array of "pass" | "fail" | null
       result: e.sets.slice(0, e.targetSets).every((v) => v === "pass") ? "pass" : "fail",
     }));
-    const { error } = await sb.from("workouts").insert(rows);
+  },
+
+  async insertSession(session) {
+    const date = new Date().toISOString();
+    const { error } = await sb.from("workouts").insert(this.buildRows(date, session));
+    if (error) throw new Error(this.friendly(error));
+  },
+
+  // Removes every row for the given session date.
+  async deleteSession(date) {
+    const { error } = await sb.from("workouts").delete().eq("date", date);
+    if (error) throw new Error(this.friendly(error));
+  },
+
+  // Replaces all rows for `date` with fresh rows built from `session`.
+  async saveSession(date, session) {
+    await this.deleteSession(date);
+    const { error } = await sb.from("workouts").insert(this.buildRows(date, session));
     if (error) throw new Error(this.friendly(error));
   },
 };

@@ -583,3 +583,28 @@ button { font-family: inherit; cursor: pointer; border: none; background: none; 
   font-weight: 800;
   font-size: 14px;
 }
+
+/* ---------- Session detail ---------- */
+.history-card { cursor: pointer; }
+.history-card:active { background: var(--bg); }
+
+.session-date {
+  font-size: 14px;
+  color: var(--text-soft);
+  margin-bottom: 16px;
+}
+
+.delete-btn {
+  width: 100%;
+  margin-top: 24px;
+  padding: 14px;
+  background: transparent;
+  border: 1px solid var(--red);
+  border-radius: var(--radius);
+  color: var(--red);
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.delete-btn:active { background: rgba(255, 59, 48, 0.12); }
+.delete-btn:disabled { opacity: 0.6; }
