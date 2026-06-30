@@ -23,25 +23,22 @@ const WORKOUTS = {
 const DEFAULT_WEIGHTS = { squat: 55, bench: 55, row: 55, ohp: 55, deadlift: 55 };
 
 /* ============================================================
-   Store — single source of truth, persisted to localStorage.
-   TODO (later): replace load()/save() internals with GitHub
-   Contents API reads/writes against a private workouts.csv.
+   App data state. Source of truth = the `workouts` table in
+   Supabase (per-user, RLS-protected), loaded into memory after
+   sign-in. The in-progress session stays in localStorage.
    ============================================================ */
+const STATE = { data: null };
+
 const Store = {
-  KEY: "5x5-tracker",
   ACTIVE_KEY: "5x5-active",
+  CACHE_KEY: "5x5-cache",
 
   load() {
-    try {
-      const raw = localStorage.getItem(this.KEY);
-      if (raw) return JSON.parse(raw);
-    } catch (e) { /* fall through to defaults */ }
-    return { weights: { ...DEFAULT_WEIGHTS }, lastWorkout: null, history: [] };
+    return STATE.data || { weights: { ...DEFAULT_WEIGHTS }, lastWorkout: null, history: [] };
   },
 
-  save(data) {
-    localStorage.setItem(this.KEY, JSON.stringify(data));
-  },
+  cache(data) { try { localStorage.setItem(this.CACHE_KEY, JSON.stringify(data)); } catch (e) {} },
+  loadCache() { try { return JSON.parse(localStorage.getItem(this.CACHE_KEY)); } catch (e) { return null; } },
 
   loadActive() {
     try {
@@ -50,12 +47,58 @@ const Store = {
     } catch (e) {}
     return null;
   },
-
   saveActive(session) {
     if (session) localStorage.setItem(this.ACTIVE_KEY, JSON.stringify(session));
     else localStorage.removeItem(this.ACTIVE_KEY);
   },
 };
+
+/* ============================================================
+   Build in-memory state from Supabase rows.
+   Each row: {date, workout, exercise, weight, sets:[...]}.
+   ============================================================ */
+function buildState(rows) {
+  // Group rows into sessions keyed by date + workout.
+  const map = new Map();
+  rows.forEach((r) => {
+    const key = r.date + "|" + r.workout;
+    if (!map.has(key)) map.set(key, { date: r.date, workout: r.workout, exercises: [] });
+    const ex = EXERCISES[r.exercise];
+    const targetSets = ex ? ex.sets : 5;
+    map.get(key).exercises.push({
+      key: r.exercise,
+      name: ex ? ex.name : r.exercise,
+      weight: r.weight,
+      targetSets,
+      targetReps: ex ? ex.reps : 5,
+      sets: r.sets.slice(0, targetSets),
+    });
+  });
+  const history = [...map.values()].sort((a, b) => new Date(b.date) - new Date(a.date));
+  history.forEach((h, i) => { h.id = i; });
+
+  // Next target weight = most recent logged weight + 5 if that session passed, else hold.
+  const weights = { ...DEFAULT_WEIGHTS };
+  Object.keys(EXERCISES).forEach((k) => {
+    let latest = null;
+    rows.forEach((r) => {
+      if (r.exercise === k && (!latest || new Date(r.date) > new Date(latest.date))) latest = r;
+    });
+    if (latest) {
+      const passed = latest.sets.slice(0, EXERCISES[k].sets).every((v) => v === "pass");
+      weights[k] = latest.weight + (passed ? WEIGHT_STEP : 0);
+    }
+  });
+
+  return { weights, lastWorkout: history.length ? history[0].workout : null, history };
+}
+
+async function loadData() {
+  const rows = await Backend.fetchRows();
+  STATE.data = buildState(rows);
+  Store.cache(STATE.data);
+  return STATE.data;
+}
 
 /* ---------- Helpers ---------- */
 const $ = (sel, root = document) => root.querySelector(sel);
@@ -191,19 +234,43 @@ const Timer = {
 };
 
 /* ============================================================
-   Router
+   Router + auth gate
    ============================================================ */
-function router() {
+function route() {
   const hash = location.hash || "#/home";
-  const [, route, param] = hash.split("/");
+  const [, r, param] = hash.split("/");
   const app = $("#app");
   app.innerHTML = "";
 
-  if (route === "workout") renderWorkout(app, param);
-  else if (route === "history") renderHistory(app);
+  if (r === "workout") renderWorkout(app, param);
+  else if (r === "history") renderHistory(app);
   else renderHome(app);
 
   window.scrollTo(0, 0);
+}
+
+let CURRENT_USER = null;
+
+/* Decides what to show: config -> sign in/up -> load data -> app. */
+async function boot() {
+  const app = $("#app");
+  app.innerHTML = "";
+  if (!Backend.init()) { renderConfigNeeded(app); return; }
+
+  CURRENT_USER = await Backend.currentUser();
+  if (!CURRENT_USER) { renderAuth(app); return; }
+
+  if (!STATE.data) {
+    renderLoading(app);
+    try {
+      await loadData();
+    } catch (e) {
+      const cached = Store.loadCache();
+      if (cached) { STATE.data = cached; toast("Offline — showing cached data"); }
+      else { renderError(app, e.message || "Couldn't load your data"); return; }
+    }
+  }
+  route();
 }
 
 function go(hash) { location.hash = hash; }
@@ -220,14 +287,21 @@ function renderHome(app) {
     <div class="topbar">
       <span class="left"></span>
       <span class="topbar-title">5×5 Tracker</span>
-      <span class="right"></span>
+      <button class="topbar-btn right" id="signOutBtn" aria-label="sign out">Sign out</button>
     </div>
   `));
+  $("#signOutBtn").onclick = async () => {
+    await Backend.signOut();
+    CURRENT_USER = null; STATE.data = null;
+    Store.saveActive(null);
+    go("#/home"); boot();
+  };
 
+  const name = Backend.usernameOf(CURRENT_USER);
   const content = el(`<div class="content"></div>`);
 
   content.appendChild(el(`<div class="screen-title">Workouts</div>`));
-  content.appendChild(el(`<div class="screen-sub">Pick today's session to begin.</div>`));
+  content.appendChild(el(`<div class="screen-sub">${name ? `Hi ${name} — pick` : "Pick"} today's session to begin.</div>`));
 
   if (active) {
     const card = el(`
@@ -330,7 +404,7 @@ function renderWorkout(app, type) {
     add.onclick = () => {
       exr.sets.push(null);
       Store.saveActive(session);
-      router();
+      route();
     };
     circles.appendChild(add);
     block.appendChild(circles);
@@ -420,37 +494,27 @@ function renderWorkout(app, type) {
   }
 }
 
-function finishWorkout(session) {
-  const data = Store.load();
+async function finishWorkout(session) {
   const anyLogged = session.exercises.some((e) => e.sets.some((v) => v !== null));
   if (!anyLogged) {
     if (!confirm("No sets logged. Discard this workout?")) return;
     Timer.dismiss(); Store.saveActive(null); go("#/home"); return;
   }
 
-  // Progression: every target set passed -> +5lb next time; any miss -> hold.
-  session.exercises.forEach((exr) => {
-    const allPassed = exr.sets.slice(0, exr.targetSets).every((v) => v === "pass");
-    data.weights[exr.key] = allPassed ? exr.weight + WEIGHT_STEP : exr.weight;
-  });
-
-  data.history.unshift({
-    id: Date.now(),
-    date: new Date().toISOString(),
-    workout: session.workout,
-    exercises: session.exercises.map((e) => ({
-      key: e.key, name: e.name, weight: e.weight,
-      targetSets: e.targetSets, targetReps: e.targetReps,
-      sets: e.sets,
-    })),
-  });
-  data.lastWorkout = session.workout;
-
-  Store.save(data);
-  Store.saveActive(null);
-  Timer.dismiss();
-  toast("Workout saved ✓");
-  go("#/home");
+  const btn = $("#finishBtn");
+  if (btn) { btn.textContent = "Saving…"; btn.disabled = true; }
+  try {
+    await Backend.insertSession(session); // writes rows to Supabase (progression derived on reload)
+    Store.saveActive(null);
+    await loadData();                     // refresh state + next weights from the DB
+    Timer.dismiss();
+    toast("Workout saved ✓");
+    go("#/home");
+  } catch (e) {
+    console.error(e);
+    if (btn) { btn.textContent = "Finish"; btn.disabled = false; }
+    toast("Save failed — check connection and retry");
+  }
 }
 
 /* ============================================================
@@ -501,7 +565,68 @@ function renderHistory(app) {
   $("#backBtn").onclick = () => go("#/home");
 }
 
+/* ============================================================
+   Auth screens (sign in / sign up) + loading / error states
+   ============================================================ */
+function renderLoading(app) {
+  app.appendChild(el(`<div class="auth"><div class="auth-logo">5×5</div><div class="auth-hint">Loading your workouts…</div></div>`));
+}
+
+function renderConfigNeeded(app) {
+  app.appendChild(el(`
+    <div class="auth">
+      <div class="auth-logo">5×5</div>
+      <div class="auth-h1">Not configured</div>
+      <div class="auth-error">Supabase keys are missing. Add your Project URL and anon key in <b>config.js</b>.</div>
+    </div>`));
+}
+
+function renderError(app, msg) {
+  const wrap = el(`
+    <div class="auth">
+      <div class="auth-logo">5×5</div>
+      <div class="auth-error">${msg}</div>
+      <button class="auth-btn" id="retryBtn">Retry</button>
+      <button class="auth-link" id="outBtn">Sign out</button>
+    </div>`);
+  app.appendChild(wrap);
+  $("#retryBtn").onclick = () => boot();
+  $("#outBtn").onclick = async () => { await Backend.signOut(); CURRENT_USER = null; STATE.data = null; boot(); };
+}
+
+/* Sign in via OAuth provider. No passwords are ever handled by this app. */
+function renderAuth(app) {
+  const provider = Backend.providerLabel();
+  const label = `<span class="gmark">${provider[0]}</span> Continue with ${provider}`;
+  const wrap = el(`
+    <div class="auth">
+      <div class="auth-logo">5×5</div>
+      <div class="auth-h1">5×5 Tracker</div>
+      <div class="auth-hint">Sign in with ${provider} to save and sync your workouts.
+        Your password is handled entirely by ${provider} — this app never sees it.</div>
+
+      <div class="auth-error" id="err" hidden></div>
+      <button class="auth-btn google" id="go">${label}</button>
+    </div>`);
+  app.appendChild(wrap);
+
+  const err = (m) => { const e = $("#err"); e.textContent = m; e.hidden = !m; };
+  $("#go").onclick = async () => {
+    const btn = $("#go"); btn.disabled = true; btn.textContent = "Redirecting…";
+    err("");
+    try {
+      await Backend.signIn(); // full-page redirect to the provider
+    } catch (e) {
+      btn.disabled = false; btn.innerHTML = label;
+      err(e.message);
+    }
+  };
+}
+
 /* ---------- Boot ---------- */
-window.addEventListener("hashchange", router);
-window.addEventListener("DOMContentLoaded", router);
-if (document.readyState !== "loading") router();
+window.addEventListener("hashchange", () => {
+  if (CURRENT_USER && STATE.data) route();
+  else boot();
+});
+window.addEventListener("DOMContentLoaded", boot);
+if (document.readyState !== "loading") boot();

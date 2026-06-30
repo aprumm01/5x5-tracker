@@ -477,3 +477,109 @@ button { font-family: inherit; cursor: pointer; border: none; background: none; 
   border-radius: 14px;
 }
 .sheet-done:active { background: var(--red-dark); }
+
+/* ---------- Auth screens ---------- */
+.auth {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  padding: calc(var(--safe-top) + 48px) 24px calc(var(--safe-bottom) + 24px);
+  max-width: 420px;
+  margin: 0 auto;
+  width: 100%;
+}
+.auth-logo {
+  font-size: 34px;
+  font-weight: 800;
+  color: var(--red);
+  letter-spacing: -1px;
+  text-align: center;
+  margin-bottom: 24px;
+}
+.auth-h1 {
+  font-size: 26px;
+  font-weight: 800;
+  letter-spacing: -0.5px;
+  margin-bottom: 8px;
+}
+.auth-hint {
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--text-soft);
+  margin-bottom: 24px;
+}
+.auth-hint b { color: var(--text); }
+
+.field {
+  display: flex;
+  flex-direction: column;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-soft);
+  margin-bottom: 14px;
+  gap: 6px;
+}
+.field input {
+  background: var(--bg-soft);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 14px;
+  font-size: 17px;
+  color: var(--text);
+  font-family: inherit;
+  width: 100%;
+}
+.field input:focus { outline: none; border-color: var(--red); }
+
+.auth-error {
+  background: rgba(255,69,58,0.14);
+  color: var(--red);
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-size: 14px;
+  font-weight: 500;
+  margin-bottom: 14px;
+}
+
+.auth-btn {
+  width: 100%;
+  padding: 15px;
+  font-size: 17px;
+  font-weight: 700;
+  color: #fff;
+  background: var(--red);
+  border-radius: 14px;
+  margin-top: 6px;
+}
+.auth-btn:active { background: var(--red-dark); }
+.auth-btn:disabled { opacity: 0.6; }
+
+.auth-link {
+  color: var(--text-soft);
+  font-size: 14px;
+  font-weight: 500;
+  margin-top: 16px;
+  text-align: center;
+}
+
+.auth-btn.google {
+  background: #fff;
+  color: #1c1c1e;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
+.auth-btn.google:active { background: #e8e8e8; }
+.auth-btn.google .gmark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #4285f4;
+  color: #fff;
+  font-weight: 800;
+  font-size: 14px;
+}
