@@ -1,8 +1,23 @@
 :root {
-  --red: #ff453a;
-  --red-dark: #c4302b;
+  /* Primary accent - Forest Green */
+  --accent: #059669;
+  --accent-dark: #047857;
+  --accent-light: #10b981;
+  --accent-soft: rgba(5, 150, 105, 0.16);
+
+  /* Special emphasis - Cool Blue */
+  --emphasis: #3B82F6;
+  --emphasis-dark: #2563eb;
+  --emphasis-soft: rgba(59, 130, 246, 0.16);
+
+  /* Legacy red (keeping for compatibility, will phase out) */
+  --red: #059669;
+  --red-dark: #047857;
+
+  /* Background & UI */
   --bg: #000000;
   --bg-soft: #1c1c1e;
+  --bg-elevated: #2c2c2e;
   --text: #f2f2f7;
   --text-soft: #8e8e93;
   --line: #2c2c2e;
@@ -21,16 +36,25 @@ html, body {
   color: var(--text);
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   -webkit-font-smoothing: antialiased;
+  /* Lock horizontal scrolling */
+  overflow-x: hidden;
+  width: 100%;
+  position: fixed;
+  height: 100%;
 }
 
 #app {
   max-width: 480px;
   margin: 0 auto;
   min-height: 100vh;
+  height: 100%;
   background: var(--bg);
   position: relative;
   display: flex;
   flex-direction: column;
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
 }
 
 button { font-family: inherit; cursor: pointer; border: none; background: none; }
@@ -50,7 +74,7 @@ button { font-family: inherit; cursor: pointer; border: none; background: none; 
 .topbar .left  { justify-self: start; }
 .topbar .right { justify-self: end; }
 .topbar-btn {
-  color: var(--red);
+  color: var(--accent);
   font-size: 17px;
   font-weight: 500;
   padding: 4px 0;
@@ -73,7 +97,12 @@ button { font-family: inherit; cursor: pointer; border: none; background: none; 
 .pill .chev { font-size: 11px; color: var(--text-soft); }
 
 /* ---------- Generic content ---------- */
-.content { flex: 1; padding: 16px; overflow-y: auto; }
+.content {
+  flex: 1;
+  padding: 16px;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
 .content.with-dock { padding-bottom: 280px; }
 
 .screen-title {
@@ -81,11 +110,16 @@ button { font-family: inherit; cursor: pointer; border: none; background: none; 
   font-weight: 800;
   letter-spacing: -0.5px;
   margin: 12px 4px 4px;
+  background: linear-gradient(135deg, var(--text) 0%, var(--accent-light) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
 }
 .screen-sub {
   color: var(--text-soft);
   font-size: 15px;
   margin: 0 4px 20px;
+  line-height: 1.4;
 }
 
 /* ---------- Segmented control ---------- */
@@ -115,7 +149,7 @@ button { font-family: inherit; cursor: pointer; border: none; background: none; 
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.5px;
-  color: var(--red);
+  color: var(--accent-light);
   margin: 8px 4px 10px;
 }
 .workout-card {
@@ -127,12 +161,17 @@ button { font-family: inherit; cursor: pointer; border: none; background: none; 
   border-radius: var(--radius);
   padding: 18px;
   margin-bottom: 14px;
-  transition: transform 0.06s ease;
+  transition: transform 0.06s ease, box-shadow 0.15s ease;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
 }
-.workout-card:active { transform: scale(0.99); }
+.workout-card:active {
+  transform: scale(0.99);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.4);
+}
 .workout-card.featured {
-  border: 2px solid var(--red);
-  box-shadow: 0 4px 16px rgba(211,38,44,0.10);
+  border: 2px solid var(--accent);
+  box-shadow: 0 4px 16px rgba(5, 150, 105, 0.20), 0 0 0 1px var(--accent-soft);
+  background: linear-gradient(135deg, var(--bg-soft) 0%, rgba(5, 150, 105, 0.03) 100%);
 }
 .workout-card h3 {
   margin: 0 0 4px;
@@ -143,8 +182,8 @@ button { font-family: inherit; cursor: pointer; border: none; background: none; 
   display: inline-block;
   font-size: 11px;
   font-weight: 700;
-  color: var(--red);
-  background: rgba(255,69,58,0.16);
+  color: var(--accent-light);
+  background: var(--accent-soft);
   padding: 2px 8px;
   border-radius: 6px;
   margin-bottom: 10px;
@@ -171,6 +210,12 @@ button { font-family: inherit; cursor: pointer; border: none; background: none; 
   font-size: 16px;
   font-weight: 600;
   margin-top: 6px;
+  transition: transform 0.06s ease, background 0.12s ease;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
+}
+.link-btn:active {
+  transform: scale(0.98);
+  background: var(--bg-elevated);
 }
 .link-btn .chev { color: var(--text-soft); }
 
@@ -183,39 +228,46 @@ button { font-family: inherit; cursor: pointer; border: none; background: none; 
   display: flex;
   justify-content: space-between;
   align-items: baseline;
-  margin-bottom: 12px;
+  margin-bottom: 14px;
 }
-.exercise-head .name { font-size: 17px; font-weight: 600; }
+.exercise-head .name {
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: -0.2px;
+}
 .exercise-head .target {
   font-size: 15px;
-  color: var(--text-soft);
+  color: var(--accent-light);
   font-variant-numeric: tabular-nums;
+  font-weight: 600;
 }
 .exercise-head .target .chev { margin-left: 4px; font-size: 12px; }
 
-.circles { display: flex; gap: 10px; flex-wrap: wrap; }
+.circles { display: flex; gap: 12px; flex-wrap: wrap; }
 .set-circle {
-  width: 46px;
-  height: 46px;
+  width: 48px;
+  height: 48px;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 17px;
-  font-weight: 600;
+  font-weight: 700;
   background: var(--circle-empty);
   color: var(--text-soft);
-  transition: transform 0.08s ease, background 0.12s ease;
+  transition: transform 0.08s ease, background 0.12s ease, box-shadow 0.12s ease;
+  border: 2px solid transparent;
 }
-.set-circle:active { transform: scale(0.9); }
+.set-circle:active { transform: scale(0.92); }
 .set-circle.done {
-  background: var(--red);
+  background: var(--accent);
   color: #fff;
+  box-shadow: 0 2px 8px rgba(5, 150, 105, 0.4);
 }
 .set-circle.fail {
   background: #3a3a3c;
-  color: var(--red);
-  border: 1.5px solid var(--red);
+  color: var(--emphasis);
+  border: 1.5px solid var(--emphasis);
 }
 .set-circle.add {
   border: 1.5px dashed var(--line);
@@ -233,15 +285,18 @@ button { font-family: inherit; cursor: pointer; border: none; background: none; 
   bottom: 0;
   max-width: 480px;
   margin: 0 auto;
-  background: var(--bg);
+  background: linear-gradient(180deg, transparent 0%, var(--bg) 8%);
   border-top: 1px solid var(--line);
   padding: 14px 16px calc(var(--safe-bottom) + 14px);
   z-index: 20;
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
 }
 .timer-card {
   background: var(--bg-soft);
   border-radius: var(--radius);
   padding: 14px 16px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
 }
 .timer-row {
   display: flex;
@@ -273,9 +328,10 @@ button { font-family: inherit; cursor: pointer; border: none; background: none; 
 .timer-bar > span {
   display: block;
   height: 100%;
-  background: var(--red);
+  background: linear-gradient(90deg, var(--accent-light) 0%, var(--accent) 100%);
   width: 0%;
   transition: width 0.3s linear;
+  box-shadow: 0 0 8px rgba(5, 150, 105, 0.6);
 }
 .timer-presets {
   display: flex;
@@ -287,8 +343,8 @@ button { font-family: inherit; cursor: pointer; border: none; background: none; 
   padding: 7px;
   font-size: 13px;
   font-weight: 600;
-  color: var(--red);
-  background: rgba(255,69,58,0.16);
+  color: var(--accent-light);
+  background: var(--accent-soft);
   border-radius: 8px;
 }
 
@@ -297,7 +353,7 @@ button { font-family: inherit; cursor: pointer; border: none; background: none; 
   justify-content: space-between;
   margin-top: 12px;
 }
-.dock-footer button { color: var(--red); font-size: 15px; font-weight: 500; }
+.dock-footer button { color: var(--accent); font-size: 15px; font-weight: 500; }
 
 .dock-actions {
   display: flex;
@@ -311,8 +367,16 @@ button { font-family: inherit; cursor: pointer; border: none; background: none; 
   font-size: 17px;
   font-weight: 700;
 }
-.dock-btn.finish { background: var(--red); color: #fff; flex: 1.6; }
-.dock-btn.finish:active { background: var(--red-dark); }
+.dock-btn.finish {
+  background: linear-gradient(135deg, var(--accent-light) 0%, var(--accent) 100%);
+  color: #fff;
+  flex: 1.6;
+  box-shadow: 0 4px 12px rgba(5, 150, 105, 0.4);
+}
+.dock-btn.finish:active {
+  background: var(--accent-dark);
+  box-shadow: 0 2px 6px rgba(5, 150, 105, 0.5);
+}
 .dock-btn.finish:disabled { opacity: 0.6; }
 .dock-btn.cancel {
   background: var(--bg-soft);
@@ -350,7 +414,7 @@ button { font-family: inherit; cursor: pointer; border: none; background: none; 
   font-size: 12px;
   font-weight: 700;
   color: #fff;
-  background: var(--red);
+  background: var(--accent);
   border-radius: 6px;
   padding: 3px 8px;
 }
@@ -360,7 +424,7 @@ button { font-family: inherit; cursor: pointer; border: none; background: none; 
   color: var(--text-soft);
   line-height: 1.5;
 }
-.history-card .summary .done-dot { color: var(--red); }
+.history-card .summary .done-dot { color: var(--accent-light); }
 
 .empty {
   text-align: center;
@@ -484,8 +548,8 @@ button { font-family: inherit; cursor: pointer; border: none; background: none; 
   padding: 8px 14px;
   font-size: 13px;
   font-weight: 600;
-  color: var(--red);
-  background: rgba(255,69,58,0.16);
+  color: var(--accent-light);
+  background: var(--accent-soft);
   border-radius: 999px;
 }
 
@@ -495,10 +559,14 @@ button { font-family: inherit; cursor: pointer; border: none; background: none; 
   font-size: 17px;
   font-weight: 700;
   color: #fff;
-  background: var(--red);
+  background: linear-gradient(135deg, var(--accent-light) 0%, var(--accent) 100%);
   border-radius: 14px;
+  box-shadow: 0 4px 12px rgba(5, 150, 105, 0.3);
 }
-.sheet-done:active { background: var(--red-dark); }
+.sheet-done:active {
+  background: var(--accent-dark);
+  box-shadow: 0 2px 6px rgba(5, 150, 105, 0.4);
+}
 
 /* ---------- Auth screens ---------- */
 .auth {
@@ -513,7 +581,7 @@ button { font-family: inherit; cursor: pointer; border: none; background: none; 
 .auth-logo {
   font-size: 34px;
   font-weight: 800;
-  color: var(--red);
+  color: var(--accent-light);
   letter-spacing: -1px;
   text-align: center;
   margin-bottom: 24px;
@@ -551,16 +619,17 @@ button { font-family: inherit; cursor: pointer; border: none; background: none; 
   font-family: inherit;
   width: 100%;
 }
-.field input:focus { outline: none; border-color: var(--red); }
+.field input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
 
 .auth-error {
-  background: rgba(255,69,58,0.14);
-  color: var(--red);
+  background: rgba(59, 130, 246, 0.14);
+  color: var(--emphasis);
   border-radius: 10px;
   padding: 10px 12px;
   font-size: 14px;
   font-weight: 500;
   margin-bottom: 14px;
+  border-left: 3px solid var(--emphasis);
 }
 
 .auth-btn {
@@ -569,11 +638,15 @@ button { font-family: inherit; cursor: pointer; border: none; background: none; 
   font-size: 17px;
   font-weight: 700;
   color: #fff;
-  background: var(--red);
+  background: linear-gradient(135deg, var(--accent-light) 0%, var(--accent) 100%);
   border-radius: 14px;
   margin-top: 6px;
+  box-shadow: 0 4px 12px rgba(5, 150, 105, 0.3);
 }
-.auth-btn:active { background: var(--red-dark); }
+.auth-btn:active {
+  background: var(--accent-dark);
+  box-shadow: 0 2px 6px rgba(5, 150, 105, 0.4);
+}
 .auth-btn:disabled { opacity: 0.6; }
 
 .auth-link {
@@ -607,8 +680,15 @@ button { font-family: inherit; cursor: pointer; border: none; background: none; 
 }
 
 /* ---------- Session detail ---------- */
-.history-card { cursor: pointer; }
-.history-card:active { background: var(--bg); }
+.history-card {
+  cursor: pointer;
+  transition: transform 0.06s ease, background 0.12s ease;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
+}
+.history-card:active {
+  transform: scale(0.99);
+  background: var(--bg-elevated);
+}
 
 .session-date {
   font-size: 14px;
@@ -621,14 +701,14 @@ button { font-family: inherit; cursor: pointer; border: none; background: none; 
   margin-top: 24px;
   padding: 14px;
   background: transparent;
-  border: 1px solid var(--red);
+  border: 1px solid var(--emphasis);
   border-radius: var(--radius);
-  color: var(--red);
+  color: var(--emphasis);
   font-size: 16px;
   font-weight: 600;
   cursor: pointer;
 }
-.delete-btn:active { background: rgba(255, 59, 48, 0.12); }
+.delete-btn:active { background: var(--emphasis-soft); }
 .delete-btn:disabled { opacity: 0.6; }
 /* ============================================================
    Progress screen — per-lift weight charts
@@ -637,22 +717,24 @@ button { font-family: inherit; cursor: pointer; border: none; background: none; 
   background: var(--bg-soft);
   border: 1px solid var(--line);
   border-radius: 14px;
-  padding: 14px 14px 10px;
+  padding: 16px 14px 12px;
   margin-top: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
 }
 .progress-head {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
-  margin-bottom: 8px;
+  margin-bottom: 10px;
 }
 .progress-name {
   color: var(--text);
-  font-size: 16px;
+  font-size: 17px;
   font-weight: 700;
+  letter-spacing: -0.2px;
 }
 .progress-latest {
-  color: var(--red);
+  color: var(--accent-light);
   font-size: 15px;
   font-weight: 700;
 }
@@ -714,7 +796,8 @@ button { font-family: inherit; cursor: pointer; border: none; background: none; 
   background: var(--bg-soft);
   border: 1px solid var(--line);
   border-radius: var(--radius);
-  padding: 12px;
+  padding: 14px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
 }
 .graph-svg {
   width: 100%;
