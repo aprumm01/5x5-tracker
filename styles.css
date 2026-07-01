@@ -74,7 +74,7 @@ button { font-family: inherit; cursor: pointer; border: none; background: none; 
 
 /* ---------- Generic content ---------- */
 .content { flex: 1; padding: 16px; overflow-y: auto; }
-.content.with-dock { padding-bottom: 180px; }
+.content.with-dock { padding-bottom: 280px; }
 
 .screen-title {
   font-size: 32px;
@@ -298,6 +298,28 @@ button { font-family: inherit; cursor: pointer; border: none; background: none; 
   margin-top: 12px;
 }
 .dock-footer button { color: var(--red); font-size: 15px; font-weight: 500; }
+
+.dock-actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 12px;
+}
+.dock-btn {
+  flex: 1;
+  padding: 15px;
+  border-radius: 14px;
+  font-size: 17px;
+  font-weight: 700;
+}
+.dock-btn.finish { background: var(--red); color: #fff; flex: 1.6; }
+.dock-btn.finish:active { background: var(--red-dark); }
+.dock-btn.finish:disabled { opacity: 0.6; }
+.dock-btn.cancel {
+  background: var(--bg-soft);
+  color: var(--text);
+  border: 1px solid var(--line);
+}
+.dock-btn.cancel:active { background: #2c2c2e; }
 
 /* ---------- History ---------- */
 .history-group-title {
@@ -647,4 +669,55 @@ button { font-family: inherit; cursor: pointer; border: none; background: none; 
   font-size: 13px;
   padding: 16px 0;
   text-align: center;
+}
+
+/* ---------- Demo mode badge ---------- */
+.demo-badge {
+  position: fixed;
+  top: calc(var(--safe-top) + 8px);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 300;
+  background: #ffb300;
+  color: #1c1c1e;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  padding: 5px 12px;
+  border-radius: 999px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+}
+
+/* ---------- History graph (pills + multi-line chart) ---------- */
+.lift-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 4px 0 14px;
+}
+.lift-pill {
+  font-size: 13px;
+  font-weight: 600;
+  padding: 6px 12px;
+  border-radius: 999px;
+  color: #fff;
+  background: var(--c);
+  border: 1.5px solid var(--c);
+  transition: opacity 0.12s ease;
+}
+.lift-pill.off {
+  background: transparent;
+  color: var(--text-soft);
+  border-color: var(--line);
+}
+.graph-wrap {
+  background: var(--bg-soft);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 12px;
+}
+.graph-svg {
+  width: 100%;
+  height: auto;
+  display: block;
 }

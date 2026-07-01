@@ -272,7 +272,6 @@ function route() {
   if (r === "workout") renderWorkout(app, param);
   else if (r === "history") renderHistory(app);
   else if (r === "session") renderSessionDetail(app, param);
-  else if (r === "progress") renderProgress(app);
   else renderHome(app);
 
   window.scrollTo(0, 0);
@@ -372,16 +371,6 @@ function renderHome(app) {
   hist.onclick = () => go("#/history");
   content.appendChild(hist);
 
-  /* --- Progress entry point --- */
-  const prog = el(`
-    <button class="link-btn">
-      <span>Progress</span>
-      <span class="chev">›</span>
-    </button>`);
-  prog.onclick = () => go("#/progress");
-  content.appendChild(prog);
-  /* --- end Progress entry point --- */
-
   app.appendChild(content);
 }
 
@@ -419,9 +408,9 @@ function renderWorkout(app, type) {
 
   app.appendChild(el(`
     <div class="topbar">
-      <button class="topbar-btn left" id="backBtn">‹ Back</button>
+      <span class="left"></span>
       <span class="pill">${WORKOUTS[type].name} <span class="chev">▼</span></span>
-      <button class="topbar-btn strong right" id="finishBtn">Finish</button>
+      <span class="right"></span>
     </div>
   `));
 
@@ -491,9 +480,6 @@ function renderWorkout(app, type) {
   Timer.onTick = renderDock;
   renderDock();
 
-  $("#backBtn").onclick = () => { Timer.onTick = null; go("#/home"); };
-  $("#finishBtn").onclick = () => finishWorkout(session);
-
   function renderDock() {
     const d = $("#dock");
     if (!d) return;
@@ -530,7 +516,26 @@ function renderWorkout(app, type) {
     $("#noteBtn", footer).onclick = () => toast("Notes coming soon");
     $("#editBtn", footer).onclick = () => toast("Tap a weight to edit it");
     d.appendChild(footer);
+
+    // Primary actions in the thumb zone: Cancel (left), Finish (right).
+    const actions = el(`
+      <div class="dock-actions">
+        <button class="dock-btn cancel" id="cancelBtn">Cancel</button>
+        <button class="dock-btn finish" id="finishBtn">Finish workout</button>
+      </div>`);
+    $("#cancelBtn", actions).onclick = () => cancelWorkout(session);
+    $("#finishBtn", actions).onclick = () => finishWorkout(session);
+    d.appendChild(actions);
   }
+}
+
+function cancelWorkout(session) {
+  const anyLogged = session.exercises.some((e) => e.sets.some((v) => v !== null));
+  if (anyLogged && !confirm("Cancel this workout? Your logged sets won't be saved.")) return;
+  Timer.onTick = null;
+  Timer.dismiss();
+  Store.saveActive(null);
+  go("#/home");
 }
 
 async function finishWorkout(session) {
@@ -559,9 +564,10 @@ async function finishWorkout(session) {
 /* ============================================================
    History screen
    ============================================================ */
-function renderHistory(app) {
-  const data = Store.load();
+let historyTab = "log";  // "log" | "graph" — remembered across visits
+const graphHidden = {};  // exercise key -> true when its line is toggled off
 
+function renderHistory(app) {
   app.appendChild(el(`
     <div class="topbar">
       <button class="topbar-btn left" id="backBtn">‹ Back</button>
@@ -571,15 +577,39 @@ function renderHistory(app) {
   `));
 
   const content = el(`<div class="content"></div>`);
+  const seg = el(`
+    <div class="segmented">
+      <button data-tab="log">Log</button>
+      <button data-tab="graph">Graph</button>
+    </div>`);
+  const body = el(`<div class="hist-body"></div>`);
+  content.appendChild(seg);
+  content.appendChild(body);
+  app.appendChild(content);
 
-  if (!data.history.length) {
-    content.appendChild(el(`<div class="empty">No workouts logged yet.<br/>Finish a session and it'll show up here.</div>`));
-  } else {
+  const syncSeg = () => seg.querySelectorAll("button").forEach((b) =>
+    b.classList.toggle("active", b.dataset.tab === historyTab));
+  seg.querySelectorAll("button").forEach((b) => {
+    b.onclick = () => { historyTab = b.dataset.tab; syncSeg(); fill(); };
+  });
+
+  function fill() {
+    body.innerHTML = "";
+    if (historyTab === "graph") renderGraph();
+    else renderLog();
+  }
+
+  function renderLog() {
+    const data = Store.load();
+    if (!data.history.length) {
+      body.appendChild(el(`<div class="empty">No workouts logged yet.<br/>Finish a session and it'll show up here.</div>`));
+      return;
+    }
     let lastMonth = null;
     data.history.forEach((h) => {
       const mk = monthKey(h.date);
       if (mk !== lastMonth) {
-        content.appendChild(el(`<div class="history-group-title">${mk}</div>`));
+        body.appendChild(el(`<div class="history-group-title">${mk}</div>`));
         lastMonth = mk;
       }
       const summary = h.exercises.map((e) => {
@@ -598,11 +628,34 @@ function renderHistory(app) {
           <div class="summary">${summary}</div>
         </div>`);
       card.onclick = () => go("#/session/" + h.id);
-      content.appendChild(card);
+      body.appendChild(card);
     });
   }
 
-  app.appendChild(content);
+  function renderGraph() {
+    body.innerHTML = "";
+    const data = Store.load();
+    if (!data.history.length) {
+      body.appendChild(el(`<div class="empty">No workouts logged yet.<br/>Finish a session to see the graph.</div>`));
+      return;
+    }
+    const pills = el(`<div class="lift-pills"></div>`);
+    Object.keys(EXERCISES).forEach((key) => {
+      const off = !!graphHidden[key];
+      const pill = el(`<button class="lift-pill${off ? " off" : ""}">${EXERCISES[key].name}</button>`);
+      pill.style.setProperty("--c", LIFT_COLORS[key]);
+      pill.onclick = () => { graphHidden[key] = !graphHidden[key]; renderGraph(); };
+      pills.appendChild(pill);
+    });
+    body.appendChild(pills);
+
+    const wrap = el(`<div class="graph-wrap"></div>`);
+    wrap.innerHTML = multiChartSVG(data.history, graphHidden);
+    body.appendChild(wrap);
+  }
+
+  syncSeg();
+  fill();
   $("#backBtn").onclick = () => go("#/home");
 }
 
@@ -712,8 +765,9 @@ function renderSessionDetail(app, id) {
 }
 
 /* ============================================================
-   Progress screen (read-only) — per-lift weight charts
+   Graph — multi-line weight chart (History "Graph" tab)
    ============================================================ */
+const LIFT_COLORS = { squat: "#ff453a", bench: "#0a84ff", row: "#30d158", ohp: "#ff9f0a", deadlift: "#bf5af0" };
 
 /* Collect (date, weight) points for one lift, oldest -> newest. */
 function liftPoints(history, key) {
@@ -726,80 +780,73 @@ function liftPoints(history, key) {
   return pts.reverse();
 }
 
-/* Build a responsive inline-SVG line chart markup string for the points. */
-function weightChartSVG(points) {
-  const W = 300, H = 120, padX = 10, padTop = 14, padBottom = 14;
-  const innerW = W - padX * 2;
-  const innerH = H - padTop - padBottom;
-  const baseY = H - padBottom;
+/* Build a responsive inline-SVG multi-line chart with labeled axes:
+   weight (lb) on the y-axis, dates on the x-axis, one colored line per
+   visible lift. `hidden` maps an exercise key -> true to omit its line.
+   Scales uniformly (viewBox + width:100%/height:auto) so text stays crisp. */
+function multiChartSVG(history, hidden) {
+  const series = Object.keys(EXERCISES).map((key) => ({
+    key,
+    color: LIFT_COLORS[key],
+    pts: liftPoints(history, key).map((p) => ({ t: new Date(p.date).getTime(), w: p.weight })),
+  })).filter((s) => s.pts.length);
 
-  const weights = points.map((p) => p.weight);
-  let min = Math.min(...weights);
-  let max = Math.max(...weights);
-  if (min === max) { min -= WEIGHT_STEP; max += WEIGHT_STEP; } // flat line -> centre it
-  const span = max - min;
+  const W = 340, H = 200, padL = 34, padR = 12, padTop = 12, padBottom = 26;
+  const innerW = W - padL - padR, innerH = H - padTop - padBottom;
+  const topY = padTop, baseY = H - padBottom;
+  const svg = (inner) => `<svg class="graph-svg" viewBox="0 0 ${W} ${H}" role="img" aria-label="weight over time">${inner}</svg>`;
 
-  const n = points.length;
-  const x = (i) => padX + (n === 1 ? innerW / 2 : (innerW * i) / (n - 1));
-  const y = (w) => padTop + innerH - ((w - min) / span) * innerH;
+  const allT = [];
+  series.forEach((s) => s.pts.forEach((p) => allT.push(p.t)));
+  if (!allT.length) return svg("");
+  const minT = Math.min(...allT), maxT = Math.max(...allT), spanT = (maxT - minT) || 1;
 
-  const coords = points.map((p, i) => ({ cx: x(i), cy: y(p.weight) }));
-  const polyPts = coords.map((c) => `${c.cx.toFixed(1)},${c.cy.toFixed(1)}`).join(" ");
-  const dots = coords.map((c) => `<circle cx="${c.cx.toFixed(1)}" cy="${c.cy.toFixed(1)}" r="3.5" fill="var(--red)" />`).join("");
+  // y-axis line + x baseline (always drawn)
+  const axes =
+    `<line x1="${padL}" y1="${topY}" x2="${padL}" y2="${baseY}" stroke="var(--line)" stroke-width="1" />` +
+    `<line x1="${padL}" y1="${baseY}" x2="${W - padR}" y2="${baseY}" stroke="var(--line)" stroke-width="1" />`;
 
-  return `
-    <svg class="progress-chart" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img" aria-label="weight over time">
-      <line x1="${padX}" y1="${baseY}" x2="${W - padX}" y2="${baseY}" stroke="var(--line)" stroke-width="1" />
-      <polyline points="${polyPts}" fill="none" stroke="var(--red)" stroke-width="2"
-        stroke-linejoin="round" stroke-linecap="round" vector-effect="non-scaling-stroke" />
-      ${dots}
-    </svg>`;
-}
+  const visible = series.filter((s) => !hidden[s.key]);
+  const visW = [];
+  visible.forEach((s) => s.pts.forEach((p) => visW.push(p.w)));
+  if (!visW.length) return svg(axes);
 
-function renderProgress(app) {
-  const data = Store.load();
+  let minW = Math.min(...visW), maxW = Math.max(...visW);
+  if (minW === maxW) { minW -= WEIGHT_STEP; maxW += WEIGHT_STEP; }
+  minW = Math.floor(minW / WEIGHT_STEP) * WEIGHT_STEP;
+  maxW = Math.ceil(maxW / WEIGHT_STEP) * WEIGHT_STEP;
+  const spanW = maxW - minW || WEIGHT_STEP;
 
-  app.appendChild(el(`
-    <div class="topbar">
-      <button class="topbar-btn left" id="backBtn">‹ Back</button>
-      <span class="topbar-title">Progress</span>
-      <span class="right"></span>
-    </div>
-  `));
+  const x = (t) => padL + (maxT === minT ? innerW / 2 : ((t - minT) / spanT) * innerW);
+  const y = (w) => topY + innerH - ((w - minW) / spanW) * innerH;
 
-  const content = el(`<div class="content"></div>`);
-  content.appendChild(el(`<div class="screen-title">Progress</div>`));
+  // y-axis gridlines + weight labels
+  const step = Math.max(WEIGHT_STEP, Math.round((spanW / 4) / WEIGHT_STEP) * WEIGHT_STEP);
+  let yAxis = "";
+  for (let v = minW; v <= maxW + 0.001; v += step) {
+    const yy = y(v).toFixed(1);
+    yAxis += `<line x1="${padL}" y1="${yy}" x2="${W - padR}" y2="${yy}" stroke="var(--line)" stroke-width="0.5" opacity="0.6" />`
+          +  `<text x="${padL - 6}" y="${yy}" text-anchor="end" dominant-baseline="middle" font-size="9" fill="var(--text-soft)">${v}</text>`;
+  }
+  yAxis += `<text x="6" y="${topY + 4}" font-size="9" fill="var(--text-soft)">lb</text>`;
 
-  if (!data.history.length) {
-    content.appendChild(el(`<div class="empty">No workouts logged yet.<br/>Finish a session to see your progress here.</div>`));
-    app.appendChild(content);
-    $("#backBtn").onclick = () => go("#/home");
-    return;
+  // x-axis date labels
+  const NX = minT === maxT ? 1 : 4;
+  let xAxis = "";
+  for (let i = 0; i < NX; i++) {
+    const t = NX === 1 ? minT : minT + (spanT * i) / (NX - 1);
+    const anchor = i === 0 ? "start" : i === NX - 1 ? "end" : "middle";
+    const label = new Date(t).toLocaleDateString(undefined, { month: "numeric", day: "numeric" });
+    xAxis += `<text x="${x(t).toFixed(1)}" y="${baseY + 15}" text-anchor="${anchor}" font-size="9" fill="var(--text-soft)">${label}</text>`;
   }
 
-  Object.keys(EXERCISES).forEach((key) => {
-    const pts = liftPoints(data.history, key);
-    const latest = pts.length ? pts[pts.length - 1].weight : null;
+  const lines = visible.map((s) => {
+    const poly = s.pts.map((p) => `${x(p.t).toFixed(1)},${y(p.w).toFixed(1)}`).join(" ");
+    const dots = s.pts.map((p) => `<circle cx="${x(p.t).toFixed(1)}" cy="${y(p.w).toFixed(1)}" r="2.5" fill="${s.color}" />`).join("");
+    return `<polyline points="${poly}" fill="none" stroke="${s.color}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" />${dots}`;
+  }).join("");
 
-    const card = el(`<div class="progress-card"></div>`);
-    card.appendChild(el(`
-      <div class="progress-head">
-        <span class="progress-name">${EXERCISES[key].name}</span>
-        <span class="progress-latest">${latest !== null ? `${latest}lb` : "—"}</span>
-      </div>`));
-
-    if (pts.length < 2) {
-      card.appendChild(el(`<div class="progress-nodata">Not enough data yet</div>`));
-    } else {
-      const chart = el(`<div class="progress-chart-wrap"></div>`);
-      chart.innerHTML = weightChartSVG(pts);
-      card.appendChild(chart);
-    }
-    content.appendChild(card);
-  });
-
-  app.appendChild(content);
-  $("#backBtn").onclick = () => go("#/home");
+  return svg(yAxis + axes + lines + xAxis);
 }
 
 /* ============================================================
