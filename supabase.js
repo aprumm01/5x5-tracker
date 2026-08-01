@@ -60,18 +60,29 @@ const DEMO = {
     b.onclick = () => this.exit();
     document.body.appendChild(b);
   },
+  // A couple of sample notes so the Notes screen isn't empty in demo mode.
+  notesRows() {
+    const today = Date.now();
+    const iso = (daysAgo) => new Date(today - daysAgo * 86400000).toISOString();
+    return [
+      { id: "demo-note-1", date: iso(1).slice(0, 10), tags: ["A"], text: "Good session, squat depth felt solid.", created_at: iso(1) },
+      { id: "demo-note-2", date: iso(5).slice(0, 10), tags: ["B", "bench"], text: "Missed the last rep on bench for the third session in a row — might deload soon.", created_at: iso(5) },
+    ];
+  },
 };
 
 const Backend = {
   ready: false,
   demo: false,
   _rows: [],
+  _notes: [],
 
   init() {
     if (this.ready) return true;
     if (DEMO.isOn()) {
       this.demo = true;
       if (!this._rows.length) this._rows = DEMO.rows();
+      if (!this._notes.length) this._notes = DEMO.notesRows();
       DEMO.showBadge();
       this.ready = true;
       return true;
@@ -161,6 +172,34 @@ const Backend = {
     const rows = this.buildRows(date, session);
     if (this.demo) { this._rows.push(...rows); return; }
     const { error } = await sb.from("workouts").insert(rows);
+    if (error) throw new Error(this.friendly(error));
+  },
+
+  /* ---------- notes ---------- */
+  // Rows shaped: {date, tags:[...], text}. `tags` mixes workout letters
+  // ("A"/"B") with exercise keys (see NOTE_WORKOUT_TAGS / EXERCISES).
+  async fetchNotes() {
+    if (this.demo) {
+      // Mirror the live query's ordering: date desc, then created_at desc.
+      return this._notes
+        .map((n) => ({ ...n, tags: [...(n.tags || [])] }))
+        .sort((a, b) => (a.date === b.date ? new Date(b.created_at) - new Date(a.created_at) : (a.date < b.date ? 1 : -1)));
+    }
+    const { data, error } = await sb
+      .from("notes")
+      .select("*")
+      .order("date", { ascending: false })
+      .order("created_at", { ascending: false });
+    if (error) throw new Error(this.friendly(error));
+    return data || [];
+  },
+
+  async addNote(note) {
+    if (this.demo) {
+      this._notes.unshift({ id: "demo-note-" + (this._notes.length + 1), created_at: new Date().toISOString(), ...note });
+      return;
+    }
+    const { error } = await sb.from("notes").insert([note]);
     if (error) throw new Error(this.friendly(error));
   },
 };

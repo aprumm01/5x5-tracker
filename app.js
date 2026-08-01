@@ -34,7 +34,7 @@ const Store = {
   CACHE_KEY: "5x5-cache",
 
   load() {
-    return STATE.data || { weights: { ...DEFAULT_WEIGHTS }, lastWorkout: null, history: [] };
+    return STATE.data || { weights: { ...DEFAULT_WEIGHTS }, lastWorkout: null, history: [], notes: [] };
   },
 
   cache(data) { try { localStorage.setItem(this.CACHE_KEY, JSON.stringify(data)); } catch (e) {} },
@@ -121,8 +121,9 @@ function buildState(rows) {
 }
 
 async function loadData() {
-  const rows = await Backend.fetchRows();
+  const [rows, notes] = await Promise.all([Backend.fetchRows(), Backend.fetchNotes()]);
   STATE.data = buildState(rows);
+  STATE.data.notes = notes;
   Store.cache(STATE.data);
   return STATE.data;
 }
@@ -148,6 +149,24 @@ function fmtDate(iso) {
 function monthKey(iso) {
   const d = new Date(iso);
   return d.toLocaleDateString(undefined, { month: "long", year: "numeric" });
+}
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+}
+
+// "YYYY-MM-DD" for today in the *local* calendar day (not UTC — matters in
+// the evening, when UTC has already rolled to the next date).
+function localDateStr(d = new Date()) {
+  const y = d.getFullYear(), m = String(d.getMonth() + 1).padStart(2, "0"), day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+// Parses a "YYYY-MM-DD" string as a local-midnight Date. `new Date(str)`
+// would parse date-only strings as UTC, shifting the displayed day in
+// negative-offset timezones — this avoids that.
+function parseDateOnly(s) {
+  const [y, m, d] = s.split("-").map(Number);
+  return new Date(y, m - 1, d);
 }
 
 let toastTimer;
@@ -223,6 +242,62 @@ function openWeightSheet(exr, onSave) {
 }
 
 /* ============================================================
+   Note composer — a free-text entry in the running notes log,
+   tagged with the workout letter (pre-selected) and/or lifts.
+   ============================================================ */
+const NOTE_WORKOUT_TAGS = ["A", "B"];
+
+function openNoteSheet(session) {
+  const selected = new Set([session.workout]);
+
+  Sheet.open((sheet, close) => {
+    sheet.appendChild(el(`<div class="sheet-title">Add note — Workout ${session.workout}</div>`));
+
+    const textarea = el(`<textarea class="note-input" placeholder="What happened in this workout?"></textarea>`);
+    sheet.appendChild(textarea);
+
+    function tagGroup(label, keys, labelFor, colorFor) {
+      const group = el(`<div class="note-tag-group"></div>`);
+      group.appendChild(el(`<div class="note-tag-group-label">${label}</div>`));
+      const row = el(`<div class="tag-toggles"></div>`);
+      keys.forEach((key) => {
+        const pill = el(`<button class="tag-toggle${selected.has(key) ? " on" : ""}">${labelFor(key)}</button>`);
+        const c = colorFor(key);
+        if (c) pill.style.setProperty("--c", c);
+        pill.onclick = () => {
+          if (selected.has(key)) selected.delete(key); else selected.add(key);
+          pill.classList.toggle("on");
+        };
+        row.appendChild(pill);
+      });
+      group.appendChild(row);
+      return group;
+    }
+
+    sheet.appendChild(tagGroup("Workout", NOTE_WORKOUT_TAGS, (k) => "Workout " + k, () => null));
+    sheet.appendChild(tagGroup("Lifts", Object.keys(EXERCISES), (k) => EXERCISES[k].name, (k) => LIFT_COLORS[k]));
+
+    const save = el(`<button class="sheet-done">Save note</button>`);
+    save.onclick = async () => {
+      const text = textarea.value.trim();
+      if (!text) { toast("Write something first"); return; }
+      save.textContent = "Saving…"; save.disabled = true;
+      try {
+        await Backend.addNote({ date: localDateStr(), tags: [...selected], text });
+        await loadData();
+        toast("Note saved");
+        close();
+      } catch (e) {
+        console.error(e);
+        save.textContent = "Save note"; save.disabled = false;
+        toast("Save failed — check connection and retry");
+      }
+    };
+    sheet.appendChild(save);
+  });
+}
+
+/* ============================================================
    Rest timer
    ============================================================ */
 const Timer = {
@@ -272,6 +347,7 @@ function route() {
   if (r === "workout") renderWorkout(app, param);
   else if (r === "history") renderHistory(app);
   else if (r === "session") renderSessionDetail(app, param);
+  else if (r === "notes") renderNotes(app);
   else renderHome(app);
 
   window.scrollTo(0, 0);
@@ -370,6 +446,14 @@ function renderHome(app) {
     </button>`);
   hist.onclick = () => go("#/history");
   content.appendChild(hist);
+
+  const notesLink = el(`
+    <button class="link-btn">
+      <span>Notes${data.notes && data.notes.length ? ` · ${data.notes.length}` : ""}</span>
+      <span class="chev">›</span>
+    </button>`);
+  notesLink.onclick = () => go("#/notes");
+  content.appendChild(notesLink);
 
   app.appendChild(content);
 }
@@ -513,7 +597,7 @@ function renderWorkout(app, type) {
         <button id="noteBtn">Note</button>
         <button id="editBtn">Edit</button>
       </div>`);
-    $("#noteBtn", footer).onclick = () => toast("Notes coming soon");
+    $("#noteBtn", footer).onclick = () => openNoteSheet(session);
     $("#editBtn", footer).onclick = () => toast("Tap a weight to edit it");
     d.appendChild(footer);
 
@@ -762,6 +846,60 @@ function renderSessionDetail(app, id) {
       toast("Delete failed — check connection and retry");
     }
   };
+}
+
+/* ============================================================
+   Notes — continuous log, grouped by date (newest first), each
+   date labeled with the workout letter(s) it pertains to.
+   ============================================================ */
+function groupNotesByDate(notes) {
+  const map = new Map();
+  notes.forEach((n) => {
+    if (!map.has(n.date)) map.set(n.date, { date: n.date, workouts: new Set(), notes: [] });
+    const g = map.get(n.date);
+    (n.tags || []).forEach((t) => { if (t === "A" || t === "B") g.workouts.add(t); });
+    g.notes.push(n);
+  });
+  return [...map.values()].sort((a, b) => new Date(b.date) - new Date(a.date));
+}
+
+function renderNotes(app) {
+  app.appendChild(el(`
+    <div class="topbar">
+      <button class="topbar-btn left" id="backBtn">‹ Back</button>
+      <span class="topbar-title">Notes</span>
+      <span class="right"></span>
+    </div>
+  `));
+
+  const content = el(`<div class="content"></div>`);
+  const notes = Store.load().notes || [];
+
+  if (!notes.length) {
+    content.appendChild(el(`<div class="empty">No notes yet.<br/>Add one from the workout screen.</div>`));
+  } else {
+    groupNotesByDate(notes).forEach((group) => {
+      const badges = [...group.workouts].sort().map((w) => `<span class="note-badge">${w}</span>`).join("");
+      content.appendChild(el(`<div class="note-date-header"><span>${fmtDate(parseDateOnly(group.date))}</span>${badges}</div>`));
+      group.notes.forEach((n) => {
+        const tagChips = (n.tags || [])
+          .filter((t) => t !== "A" && t !== "B")
+          .map((t) => {
+            const label = EXERCISES[t] ? EXERCISES[t].name : t;
+            const color = LIFT_COLORS[t] || "#3a3a3c";
+            return `<span class="note-tag" style="--c:${color}">${label}</span>`;
+          }).join("");
+        content.appendChild(el(`
+          <div class="note-card">
+            <div class="note-text">${escapeHtml(n.text)}</div>
+            ${tagChips ? `<div class="note-tags">${tagChips}</div>` : ""}
+          </div>`));
+      });
+    });
+  }
+
+  app.appendChild(content);
+  $("#backBtn").onclick = () => go("#/home");
 }
 
 /* ============================================================
