@@ -190,7 +190,11 @@ const Backend = {
       .select("*")
       .order("date", { ascending: false })
       .order("created_at", { ascending: false });
-    if (error) throw new Error(this.friendly(error));
+    // Graceful degradation: if notes table doesn't exist yet, return empty array
+    if (error) {
+      console.warn("Notes fetch failed (table may not exist):", error.message);
+      return [];
+    }
     return data || [];
   },
 
@@ -200,6 +204,9 @@ const Backend = {
       return;
     }
     const { error } = await sb.from("notes").insert([note]);
-    if (error) throw new Error(this.friendly(error));
+    if (error) {
+      console.warn("Note save failed (table may not exist):", error.message);
+      throw new Error("Notes feature unavailable — table not set up in Supabase");
+    }
   },
 };
