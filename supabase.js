@@ -64,7 +64,9 @@ const DEMO = {
   notesRows() {
     const today = Date.now();
     const iso = (daysAgo) => new Date(today - daysAgo * 86400000).toISOString();
+    const todayStr = iso(0).slice(0, 10);
     return [
+      { id: "demo-note-0", date: todayStr, tags: ["A", "squat"], text: "Testing notes on workout screen — this should appear during Workout A.", created_at: iso(0) },
       { id: "demo-note-1", date: iso(1).slice(0, 10), tags: ["A"], text: "Good session, squat depth felt solid.", created_at: iso(1) },
       { id: "demo-note-2", date: iso(5).slice(0, 10), tags: ["B", "bench"], text: "Missed the last rep on bench for the third session in a row — might deload soon.", created_at: iso(5) },
     ];
