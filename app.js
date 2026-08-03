@@ -287,6 +287,7 @@ function openNoteSheet(session) {
         await loadData();
         toast("Note saved");
         close();
+        route(); // re-render to show the new note
       } catch (e) {
         console.error(e);
         save.textContent = "Save note"; save.disabled = false;
@@ -555,6 +556,38 @@ function renderWorkout(app, type) {
       return c;
     }
   });
+
+  // Notes for this workout (today's date, matching workout type)
+  const todayStr = localDateStr();
+  const workoutTag = type; // "A" or "B"
+  const allNotes = Store.load().notes || [];
+  const workoutNotes = allNotes
+    .filter((n) => n.date === todayStr && n.tags && n.tags.includes(workoutTag))
+    .sort((a, b) => new Date(a.created_at) - new Date(b.created_at)); // chronological
+
+  if (workoutNotes.length) {
+    const notesSection = el(`<div class="workout-notes"></div>`);
+    notesSection.appendChild(el(`<div class="workout-notes-header">Notes</div>`));
+    workoutNotes.forEach((n) => {
+      const time = new Date(n.created_at).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+      const liftTags = (n.tags || [])
+        .filter((t) => t !== "A" && t !== "B")
+        .map((t) => {
+          const label = EXERCISES[t] ? EXERCISES[t].name : t;
+          const color = LIFT_COLORS[t] || "#3a3a3c";
+          return `<span class="note-tag" style="--c:${color}">${label}</span>`;
+        })
+        .join("");
+      notesSection.appendChild(el(`
+        <div class="workout-note-card">
+          <div class="workout-note-time">${time}</div>
+          <div class="workout-note-text">${escapeHtml(n.text)}</div>
+          ${liftTags ? `<div class="workout-note-tags">${liftTags}</div>` : ""}
+        </div>
+      `));
+    });
+    content.appendChild(notesSection);
+  }
 
   app.appendChild(content);
 

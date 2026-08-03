@@ -895,3 +895,42 @@ button { font-family: inherit; cursor: pointer; border: none; background: none; 
   height: auto;
   display: block;
 }
+
+/* ---------- Workout notes (inline during session) ---------- */
+.workout-notes {
+  margin-top: 24px;
+  padding-top: 16px;
+  border-top: 1px solid var(--line);
+}
+.workout-notes-header {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-soft);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 12px;
+}
+.workout-note-card {
+  background: var(--bg-soft);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 12px 14px;
+  margin-bottom: 10px;
+}
+.workout-note-time {
+  font-size: 11px;
+  color: var(--text-soft);
+  margin-bottom: 4px;
+}
+.workout-note-text {
+  font-size: 15px;
+  color: var(--text);
+  line-height: 1.4;
+  white-space: pre-wrap;
+}
+.workout-note-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
