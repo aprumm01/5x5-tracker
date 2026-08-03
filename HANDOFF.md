@@ -19,12 +19,12 @@ StrongLifts-style 5×5 workout tracker. Vanilla HTML/CSS/JS (no build step), dar
 
 ## Screens / features
 - **Home** — pick Workout A (Squat/Bench/Row) or B (Squat/OHP/Deadlift); shows next weights; History link; Resume banner for an in-progress session.
-- **Workout** — top bar shows only the `Workout A ▼` pill. Primary actions are in the **bottom dock (thumb zone)**: **Cancel** (left, discards with a confirm) and **Finish workout** (right, green). Rest timer + **Note** button sit above. Rep circles cycle empty→pass(✓)→fail(✕)→empty; tapping a weight opens a bottom-sheet stepper.
+- **Workout** — top bar shows only the `Workout A ▼` pill. Primary actions are in the **bottom dock (thumb zone)**: **Cancel** (left, discards with a confirm) and **Finish workout** (right, green). Rest timer + **Note** button sit above. Rep circles cycle empty→pass(✓)→fail(✕)→empty; tapping a weight opens a bottom-sheet stepper. **Notes for this workout appear inline below the exercises** (timestamped, chronological).
 - **Notes** (`#/notes`) — continuous log of free-text workout notes. Add from the workout screen via the **Note** button; each note can be tagged with lifts and moods. Notes are grouped by date (newest first) with workout badges (A/B). Stored in Supabase `public.notes` table with RLS.
 - **History** — segmented **Log | Graph** tabs (state in module vars `historyTab`, `graphHidden`):
   - **Log** — sessions grouped by month; tap a card → Session detail.
   - **Graph** — one multi-line chart (`multiChartSVG`) of weight-over-time, **weight on y-axis (gridlines + lb labels), dates on x-axis**. Colored **pills** toggle each lift on/off. Colors in `LIFT_COLORS` (squat red, bench blue, row green, ohp orange, deadlift purple). SVG scales uniformly (viewBox + width:100%/height:auto) so labels stay crisp.
-- **Session detail** (`#/session/<id>`) — view/edit a past session (toggle sets, change weights), **Save** (topbar) or **Delete workout** (bottom). Writes via `Backend.saveSession` / `deleteSession`.
+- **Session detail** (`#/session/<id>`) — view/edit a past session (toggle sets, change weights), **Save** (topbar) or **Delete workout** (bottom). Writes via `Backend.saveSession` / `deleteSession`. **Notes section** shows existing notes and allows adding retroactive notes via **+ Add Note** button.
 - **Progression / deload** — `deriveWeight()` (used by `buildState`): pass = +5 & reset streak; fail = hold & streak++; **3 consecutive fails = deload to 90% rounded to nearest 5**, reset streak.
 
 ## Demo mode (no sign-in)
@@ -34,6 +34,7 @@ In `supabase.js` (`DEMO` object). Turn **ON** with `?demo` in the URL (persists 
 - Auth: Google OAuth via Supabase. `OAUTH_PROVIDER = "google"` in `supabase.js` (one-word switch to `"github"`; provider-agnostic `signIn()`/`providerLabel()`).
 - Supabase project ref: `rjlktxpdqvibialkgfhu`. Google provider enabled, GitHub disabled; `site_url` + `uri_allow_list` include localhost:8077 and the live URL (set via Management API).
 - **Table `public.workouts`** with RLS (`user_id = auth.uid()`): `id, user_id, date, workout, exercise, weight, sets (jsonb), result, created_at`. One row per exercise per session. `buildState()` groups rows into sessions (newest-first) and derives next weights.
+- **Table `public.notes`** with RLS (`user_id = auth.uid()`): `id, user_id, date, tags (jsonb), text, created_at`. Tags include workout letter ("A"/"B") and/or exercise keys. `fetchNotes()` gracefully returns `[]` if the table doesn't exist.
 - Google Cloud project **"5x5 Tracker"**, OAuth client type **Web**, redirect URI = `https://rjlktxpdqvibialkgfhu.supabase.co/auth/v1/callback`. Consent screen is in **Testing** (only added test users can sign in) — **Publish app** (Google Auth Platform → Audience) to open to anyone.
 
 ## SECURITY TODO (do soon)
