@@ -934,3 +934,23 @@ button { font-family: inherit; cursor: pointer; border: none; background: none; 
   gap: 6px;
   margin-top: 8px;
 }
+
+.workout-notes-empty {
+  font-size: 14px;
+  color: var(--text-soft);
+  padding: 12px 0;
+}
+.add-note-btn {
+  width: 100%;
+  padding: 12px;
+  margin-top: 12px;
+  border: 1.5px dashed var(--line);
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--accent);
+  font-size: 15px;
+  font-weight: 600;
+}
+.add-note-btn:active {
+  background: var(--accent-soft);
+}

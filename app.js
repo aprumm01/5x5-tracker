@@ -244,11 +244,13 @@ function openWeightSheet(exr, onSave) {
 /* ============================================================
    Note composer — a free-text entry in the running notes log,
    tagged with the workout letter (pre-selected) and/or lifts.
+   Pass `dateOverride` for retroactive notes on past sessions.
    ============================================================ */
 const NOTE_WORKOUT_TAGS = ["A", "B"];
 
-function openNoteSheet(session) {
+function openNoteSheet(session, dateOverride = null) {
   const selected = new Set([session.workout]);
+  const noteDate = dateOverride || localDateStr();
 
   Sheet.open((sheet, close) => {
     sheet.appendChild(el(`<div class="sheet-title">Add note — Workout ${session.workout}</div>`));
@@ -283,7 +285,7 @@ function openNoteSheet(session) {
       if (!text) { toast("Write something first"); return; }
       save.textContent = "Saving…"; save.disabled = true;
       try {
-        await Backend.addNote({ date: localDateStr(), tags: [...selected], text });
+        await Backend.addNote({ date: noteDate, tags: [...selected], text });
         await loadData();
         toast("Note saved");
         close();
@@ -841,6 +843,46 @@ function renderSessionDetail(app, id) {
       return c;
     }
   });
+
+  // Notes for this session (by date and workout type)
+  const sessionDate = session.date.slice(0, 10); // ensure YYYY-MM-DD
+  const workoutTag = session.workout;
+  const allNotes = Store.load().notes || [];
+  const sessionNotes = allNotes
+    .filter((n) => n.date === sessionDate && n.tags && n.tags.includes(workoutTag))
+    .sort((a, b) => new Date(a.created_at) - new Date(b.created_at)); // chronological
+
+  const notesSection = el(`<div class="workout-notes"></div>`);
+  notesSection.appendChild(el(`<div class="workout-notes-header">Notes</div>`));
+
+  if (sessionNotes.length) {
+    sessionNotes.forEach((n) => {
+      const time = new Date(n.created_at).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+      const liftTags = (n.tags || [])
+        .filter((t) => t !== "A" && t !== "B")
+        .map((t) => {
+          const label = EXERCISES[t] ? EXERCISES[t].name : t;
+          const color = LIFT_COLORS[t] || "#3a3a3c";
+          return `<span class="note-tag" style="--c:${color}">${label}</span>`;
+        })
+        .join("");
+      notesSection.appendChild(el(`
+        <div class="workout-note-card">
+          <div class="workout-note-time">${time}</div>
+          <div class="workout-note-text">${escapeHtml(n.text)}</div>
+          ${liftTags ? `<div class="workout-note-tags">${liftTags}</div>` : ""}
+        </div>
+      `));
+    });
+  } else {
+    notesSection.appendChild(el(`<div class="workout-notes-empty">No notes for this workout.</div>`));
+  }
+
+  const addNoteBtn = el(`<button class="add-note-btn">+ Add Note</button>`);
+  addNoteBtn.onclick = () => openNoteSheet(session, sessionDate);
+  notesSection.appendChild(addNoteBtn);
+
+  content.appendChild(notesSection);
 
   const del = el(`<button class="delete-btn" id="deleteBtn">Delete workout</button>`);
   content.appendChild(del);
