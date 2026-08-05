@@ -149,7 +149,7 @@ const Backend = {
       exercise: e.key,
       weight: e.weight,
       sets: e.sets, // jsonb array of "pass" | "fail" | null
-      result: e.sets.slice(0, e.targetSets).every((v) => v === "pass") ? "pass" : "fail",
+      result: e.sets.every((v) => v === "pass") ? "pass" : "fail",
     }));
   },
 
