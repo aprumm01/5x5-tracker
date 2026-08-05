@@ -1,4 +1,4 @@
-# Session Handoff — 2026-08-02
+# Session Handoff — 2026-08-04
 
 ## Project: 5×5 Tracker
 StrongLifts-style 5×5 workout tracker. Vanilla HTML/CSS/JS (no build step), dark mode
@@ -24,8 +24,9 @@ StrongLifts-style 5×5 workout tracker. Vanilla HTML/CSS/JS (no build step), dar
 - **History** — segmented **Log | Graph** tabs (state in module vars `historyTab`, `graphHidden`):
   - **Log** — sessions grouped by month; tap a card → Session detail.
   - **Graph** — one multi-line chart (`multiChartSVG`) of weight-over-time, **weight on y-axis (gridlines + lb labels), dates on x-axis**. Colored **pills** toggle each lift on/off. Colors in `LIFT_COLORS` (squat red, bench blue, row green, ohp orange, deadlift purple). SVG scales uniformly (viewBox + width:100%/height:auto) so labels stay crisp.
-- **Session detail** (`#/session/<id>`) — view/edit a past session (toggle sets, change weights), **Save** (topbar) or **Delete workout** (bottom). Writes via `Backend.saveSession` / `deleteSession`. **Notes section** shows existing notes and allows adding retroactive notes via **+ Add Note** button.
+- **Session detail** (`#/session/<id>`) — view/edit a past session: toggle sets (pass/fail/empty), change weights, **edit the date** (tap date row → date picker), and **add sets** (+ button after each exercise's circles). **Save** (topbar) persists all changes; **Delete workout** removes the session. Notes section shows existing notes and allows adding retroactive notes via **+ Add Note** button.
 - **Progression / deload** — `deriveWeight()` (used by `buildState`): pass = +5 & reset streak; fail = hold & streak++; **3 consecutive fails = deload to 90% rounded to nearest 5**, reset streak.
+- **Deadlift** — now 5×5 (5 sets of 5 reps) like all other exercises, not the StrongLifts default of 1×5.
 
 ## Demo mode (no sign-in)
 In `supabase.js` (`DEMO` object). Turn **ON** with `?demo` in the URL (persists via `localStorage` key `5x5-demo`); turn **OFF** with `?demo=off` or tap the amber "DEMO — tap to exit" badge. Seeds ~12 in-memory sample sessions (bench stalls near the end to show fails/deload). All CRUD works in-memory; nothing hits Supabase; resets on reload. `Backend` methods branch on `this.demo`.
@@ -45,6 +46,15 @@ In `supabase.js` (`DEMO` object). Turn **ON** with `?demo` in the URL (persists 
 - Publish the Google consent screen to allow non-test users.
 - Delete the now-unused private repo **`5x5-tracker-data`** (old GitHub-CSV approach).
 - Consider "leave & resume" vs the current Cancel=discard behavior on the workout screen.
+
+## Session 2026-08-04 changes
+- **Date editing** — tap the date on session detail to change when a workout happened; notes follow the session when its date changes (`Backend.moveNotes`).
+- **Add sets in history** — session detail now has a + button to add sets to any exercise (matches active workout screen).
+- **Deadlift → 5×5** — changed from 1×5 to 5×5 to match user's actual routine.
+- **Bug fixes:**
+  - `buildState()` no longer slices sets to `targetSets` — preserves all sets from DB so edits persist.
+  - `buildRows()` uses full sets array for result calculation, not sliced.
+- **Duplicate cleanup** — ran SQL to delete duplicate August entries caused by earlier false-save-failure bug.
 
 ## Notes
 - Design references (Mobbin): Hevy, The Outsiders, Discord/Cosmos.

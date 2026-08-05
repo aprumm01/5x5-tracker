@@ -8,8 +8,9 @@ A StrongLifts-style 5×5 workout tracker. Track your lifts, log notes, and watch
 
 ## Features
 
-- **Workout A/B rotation** — Squat/Bench/Row and Squat/OHP/Deadlift
+- **Workout A/B rotation** — Squat/Bench/Row and Squat/OHP/Deadlift (all 5×5)
 - **Automatic progression** — +5lb after successful sets; deload after 3 consecutive fails
+- **Edit past workouts** — Change dates, weights, sets, and add/remove reps from history
 - **Rest timer** — Configurable rest periods between sets
 - **Workout notes** — Add timestamped notes during or after workouts
 - **History & graphs** — View past sessions and track weight progression over time
