@@ -33,6 +33,7 @@ In `supabase.js` (`DEMO` object). Turn **ON** with `?demo` in the URL (persists 
 - Auth: Google OAuth via Supabase. `OAUTH_PROVIDER = "google"` in `supabase.js` (one-word switch to `"github"`; provider-agnostic `signIn()`/`providerLabel()`).
 - Supabase project ref: `rjlktxpdqvibialkgfhu`. Google provider enabled, GitHub disabled; `site_url` + `uri_allow_list` include localhost:8077 and the live URL (set via Management API).
 - **Table `public.workouts`** with RLS (`user_id = auth.uid()`): `id, user_id, date, workout, exercise, weight, sets (jsonb), result, created_at`. One row per exercise per session. `buildState()` groups rows into sessions (newest-first) and derives next weights.
+- **Table `public.notes`** with RLS (`user_id = auth.uid()`, same per-user isolation as `workouts`): `id, user_id, date, tags (text[]), text, created_at`. Schema lives in `sql/create_notes_table.sql` (schema only — never commit actual note content). Created 2026-08-04; before that, `Backend.fetchNotes()` 404'd and caused `finishWorkout()` to falsely report "Save failed" after the workout had already saved.
 - Google Cloud project **"5x5 Tracker"**, OAuth client type **Web**, redirect URI = `https://rjlktxpdqvibialkgfhu.supabase.co/auth/v1/callback`. Consent screen is in **Testing** (only added test users can sign in) — **Publish app** (Google Auth Platform → Audience) to open to anyone.
 
 ## SECURITY TODO (do soon)
