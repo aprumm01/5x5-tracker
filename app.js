@@ -241,6 +241,28 @@ function openWeightSheet(exr, onSave) {
   });
 }
 
+/* Opens a date editor for a session; calls onSave(newIso). Keeps the
+   original time-of-day and only changes the calendar date, so ordering
+   among that day's sets/notes stays sane. */
+function openDateSheet(iso, onSave) {
+  Sheet.open((sheet, close) => {
+    const orig = new Date(iso);
+    sheet.appendChild(el(`<div class="sheet-title">Workout date</div>`));
+    const input = el(`<input type="date" class="date-input" value="${localDateStr(orig)}" />`);
+    sheet.appendChild(input);
+
+    const done = el(`<button class="sheet-done">Done</button>`);
+    done.onclick = () => {
+      const [y, m, d] = input.value.split("-").map(Number);
+      if (!y || !m || !d) { toast("Pick a date"); return; }
+      const next = new Date(y, m - 1, d, orig.getHours(), orig.getMinutes(), orig.getSeconds(), orig.getMilliseconds());
+      onSave(next.toISOString());
+      close();
+    };
+    sheet.appendChild(done);
+  });
+}
+
 /* ============================================================
    Note composer — a free-text entry in the running notes log,
    tagged with the workout letter (pre-selected) and/or lifts.
@@ -783,6 +805,7 @@ function renderHistory(app) {
    ============================================================ */
 function renderSessionDetail(app, id) {
   const session = Store.load().history.find((h) => String(h.id) === String(id));
+  const originalDate = session && session.date; // the date currently persisted in Supabase
 
   if (!session) {
     app.appendChild(el(`
@@ -805,7 +828,16 @@ function renderSessionDetail(app, id) {
   `));
 
   const content = el(`<div class="content"></div>`);
-  content.appendChild(el(`<div class="session-date">${fmtDate(session.date)}</div>`));
+  const dateBtn = el(`
+    <button class="session-date">
+      <span class="session-date-text">${fmtDate(session.date)}</span>
+      <span class="chev">›</span>
+    </button>`);
+  dateBtn.onclick = () => openDateSheet(session.date, (newIso) => {
+    session.date = newIso;
+    $(".session-date-text", dateBtn).textContent = fmtDate(newIso);
+  });
+  content.appendChild(dateBtn);
 
   session.exercises.forEach((exr) => {
     const block = el(`<div class="exercise"></div>`);
@@ -895,7 +927,7 @@ function renderSessionDetail(app, id) {
     const btn = $("#saveBtn");
     btn.textContent = "Saving…"; btn.disabled = true;
     try {
-      await Backend.saveSession(session.date, session);
+      await Backend.saveSession(originalDate, session.date, session);
       await loadData();
       toast("Saved ✓");
       go("#/history");
@@ -911,7 +943,7 @@ function renderSessionDetail(app, id) {
     const btn = $("#deleteBtn");
     btn.textContent = "Deleting…"; btn.disabled = true;
     try {
-      await Backend.deleteSession(session.date);
+      await Backend.deleteSession(originalDate);
       await loadData();
       toast("Deleted");
       go("#/history");

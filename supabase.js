@@ -168,10 +168,11 @@ const Backend = {
     if (error) throw new Error(this.friendly(error));
   },
 
-  // Replaces all rows for `date` with fresh rows built from `session`.
-  async saveSession(date, session) {
-    await this.deleteSession(date);
-    const rows = this.buildRows(date, session);
+  // Deletes rows for `oldDate` and inserts fresh rows for `newDate` (the
+  // session's date may have been edited; pass the same value for both if not).
+  async saveSession(oldDate, newDate, session) {
+    await this.deleteSession(oldDate);
+    const rows = this.buildRows(newDate, session);
     if (this.demo) { this._rows.push(...rows); return; }
     const { error } = await sb.from("workouts").insert(rows);
     if (error) throw new Error(this.friendly(error));

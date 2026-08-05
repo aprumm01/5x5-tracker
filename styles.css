@@ -691,10 +691,30 @@ button { font-family: inherit; cursor: pointer; border: none; background: none; 
 }
 
 .session-date {
+  display: flex;
+  align-items: center;
+  gap: 6px;
   font-size: 14px;
+  font-weight: 600;
   color: var(--text-soft);
   margin-bottom: 16px;
+  padding: 2px 0;
 }
+.session-date .chev { font-size: 12px; }
+
+.date-input {
+  width: 100%;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 12px 14px;
+  font-size: 15px;
+  color: var(--text);
+  font-family: inherit;
+  margin-bottom: 18px;
+  color-scheme: dark;
+}
+.date-input:focus { outline: none; border-color: var(--red); }
 
 .delete-btn {
   width: 100%;
