@@ -849,6 +849,14 @@ function renderSessionDetail(app, id) {
 
     const circles = el(`<div class="circles"></div>`);
     exr.sets.forEach((val, setIdx) => circles.appendChild(makeCircle(exr, setIdx)));
+    // Add set button (same as active workout screen)
+    const add = el(`<button class="set-circle add" aria-label="add set">+</button>`);
+    add.onclick = () => {
+      exr.sets.push(null);
+      const fresh = makeCircle(exr, exr.sets.length - 1);
+      circles.insertBefore(fresh, add);
+    };
+    circles.appendChild(add);
     block.appendChild(circles);
 
     $(".weight-btn", block).onclick = () => openWeightSheet(exr, (w) => {
