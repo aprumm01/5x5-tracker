@@ -10,7 +10,7 @@ const EXERCISES = {
   bench:    { name: "Bench Press",    sets: 5, reps: 5, inc: 5 },
   row:      { name: "Barbell Row",    sets: 5, reps: 5, inc: 5 },
   ohp:      { name: "Overhead Press", sets: 5, reps: 5, inc: 5 },
-  deadlift: { name: "Deadlift",       sets: 1, reps: 5, inc: 5 },
+  deadlift: { name: "Deadlift",       sets: 5, reps: 5, inc: 5 },
 };
 
 const WEIGHT_STEP = 5; // lb per stepper tap / progression increment
