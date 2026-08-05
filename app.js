@@ -94,14 +94,13 @@ function buildState(rows) {
     const key = r.date + "|" + r.workout;
     if (!map.has(key)) map.set(key, { date: r.date, workout: r.workout, exercises: [] });
     const ex = EXERCISES[r.exercise];
-    const targetSets = ex ? ex.sets : 5;
     map.get(key).exercises.push({
       key: r.exercise,
       name: ex ? ex.name : r.exercise,
       weight: r.weight,
-      targetSets,
+      targetSets: ex ? ex.sets : 5,
       targetReps: ex ? ex.reps : 5,
-      sets: r.sets.slice(0, targetSets),
+      sets: r.sets, // preserve all sets from DB, don't slice
     });
   });
   const history = [...map.values()].sort((a, b) => new Date(b.date) - new Date(a.date));
