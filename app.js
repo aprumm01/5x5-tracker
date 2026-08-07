@@ -141,6 +141,26 @@ function nextWorkoutType(data) {
 
 function fmtWeight(w) { return `${w}lb`; }
 
+/* Calculate plates needed per side for a given total weight.
+   Assumes a 45lb bar. Returns a string like "(1× 25, 1× 10)" or "(bar only)". */
+const BAR_WEIGHT = 45;
+const PLATE_SIZES = [45, 35, 25, 10, 5, 2.5]; // standard plates, largest first
+
+function calcPlates(totalWeight) {
+  if (totalWeight <= BAR_WEIGHT) return "(bar only)";
+  let perSide = (totalWeight - BAR_WEIGHT) / 2;
+  const plates = [];
+  for (const size of PLATE_SIZES) {
+    const count = Math.floor(perSide / size);
+    if (count > 0) {
+      plates.push(`${count}× ${size % 1 === 0 ? size : size.toFixed(1)}`);
+      perSide -= count * size;
+    }
+  }
+  if (perSide > 0.01) return "(odd weight)"; // can't make it with standard plates
+  return plates.length ? `(${plates.join(", ")})` : "(bar only)";
+}
+
 function fmtDate(iso) {
   const d = new Date(iso);
   return d.toLocaleDateString(undefined, { weekday: "long", month: "short", day: "numeric" });
@@ -528,7 +548,7 @@ function renderWorkout(app, type) {
     const block = el(`<div class="exercise"></div>`);
     block.appendChild(el(`
       <div class="exercise-head">
-        <span class="name">${exr.name}</span>
+        <span class="name">${exr.name} <span class="plates">${calcPlates(exr.weight)}</span></span>
         <button class="weight-btn">${exr.targetSets}×${exr.targetReps} · <b>${exr.weight}lb</b> <span class="chev">›</span></button>
       </div>`));
 
@@ -550,6 +570,7 @@ function renderWorkout(app, type) {
       exr.weight = w;
       Store.saveActive(session);
       $(".weight-btn b", block).textContent = `${w}lb`;
+      $(".plates", block).textContent = calcPlates(w);
     });
 
     content.appendChild(block);
@@ -842,7 +863,7 @@ function renderSessionDetail(app, id) {
     const block = el(`<div class="exercise"></div>`);
     block.appendChild(el(`
       <div class="exercise-head">
-        <span class="name">${exr.name}</span>
+        <span class="name">${exr.name} <span class="plates">${calcPlates(exr.weight)}</span></span>
         <button class="weight-btn">${exr.targetSets}×${exr.targetReps} · <b>${exr.weight}lb</b> <span class="chev">›</span></button>
       </div>`));
 
@@ -861,6 +882,7 @@ function renderSessionDetail(app, id) {
     $(".weight-btn", block).onclick = () => openWeightSheet(exr, (w) => {
       exr.weight = w;
       $(".weight-btn b", block).textContent = `${w}lb`;
+      $(".plates", block).textContent = calcPlates(w);
     });
 
     content.appendChild(block);

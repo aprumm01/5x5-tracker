@@ -235,6 +235,12 @@ button { font-family: inherit; cursor: pointer; border: none; background: none; 
   font-weight: 700;
   letter-spacing: -0.2px;
 }
+.exercise-head .name .plates {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-soft);
+  margin-left: 8px;
+}
 .exercise-head .target {
   font-size: 15px;
   color: var(--accent-light);
